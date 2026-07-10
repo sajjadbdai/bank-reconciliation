@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bank Reconciliation Pro — Automated Statement Matching</title>
+  <meta name="description" content="Automatically reconcile bank statements with ledger records. Upload CSV or Excel files, match transactions by cheque number, date, and amount, and generate professional reconciliation reports." />
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- SheetJS for Excel/CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- jsPDF + AutoTable for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+  <!-- ─── Header ─────────────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="header-icon">🏦</div>
+      <div>
+        <div class="header-title">Bank <span>Reconciliation</span> Pro</div>
+        <div class="header-subtitle">Automated Statement Matching &amp; Variance Analysis</div>
+      </div>
+    </div>
+    <div class="header-badge">✨ 100% Client-Side — Your data never leaves your device</div>
+  </header>
+
+  <!-- ─── Main ───────────────────────────────────────────────────────────── -->
+  <main class="app-main">
+
+    <!-- Step Indicator -->
+    <div class="steps-container">
+      <div class="step active" id="step-indicator-1">
+        <div class="step-num">1</div>
+        <div class="step-label">Upload Files</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step" id="step-indicator-2">
+        <div class="step-num">2</div>
+        <div class="step-label">Map Columns</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step" id="step-indicator-3">
+        <div class="step-num">3</div>
+        <div class="step-label">Configure</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step" id="step-indicator-4">
+        <div class="step-num">4</div>
+        <div class="step-label">Report</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STEP 1: Upload Files                                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="step-panel active" id="step-1">
+      <div class="section-header">
+        <div class="section-title">Upload Your Statements</div>
+        <div class="section-desc">Upload Bank Statement and Ledger/Cashbook in CSV or Excel (.xlsx) format.</div>
+      </div>
+
+      <div class="upload-grid">
+
+        <!-- Bank Statement Upload -->
+        <div class="glass-card upload-card">
+          <div class="upload-card-title">
+            <span class="dot dot-bank"></span>
+            🏦 Bank Statement
+          </div>
+          <div class="dropzone" id="bank-dropzone">
+            <span class="drop-icon">☁️</span>
+            <div class="drop-text">Drag &amp; Drop or Click to Browse</div>
+            <div class="drop-subtext">CSV, XLSX, XLS supported</div>
+            <div class="drop-label" id="bank-file-label">No file selected</div>
+          </div>
+          <input type="file" id="bank-file-input" accept=".csv,.xlsx,.xls,.ods" hidden />
+          <div class="mt-16" style="font-size:12px;color:var(--text-muted);">
+            <strong style="color:var(--bank-color);">Expected columns (any name):</strong><br/>
+            Date, Description/Narration, Debit, Credit, Cheque No., Balance
+          </div>
+        </div>
+
+        <!-- Ledger Upload -->
+        <div class="glass-card upload-card">
+          <div class="upload-card-title">
+            <span class="dot dot-ledger"></span>
+            📒 Ledger / Cashbook
+          </div>
+          <div class="dropzone" id="ledger-dropzone">
+            <span class="drop-icon">☁️</span>
+            <div class="drop-text">Drag &amp; Drop or Click to Browse</div>
+            <div class="drop-subtext">CSV, XLSX, XLS supported</div>
+            <div class="drop-label" id="ledger-file-label">No file selected</div>
+          </div>
+          <input type="file" id="ledger-file-input" accept=".csv,.xlsx,.xls,.ods" hidden />
+          <div class="mt-16" style="font-size:12px;color:var(--text-muted);">
+            <strong style="color:var(--ledger-color);">Expected columns (any name):</strong><br/>
+            Date, Particulars, Debit, Credit, Cheque No., Voucher/Ref No.
+          </div>
+        </div>
+      </div>
+
+      <!-- Info Box -->
+      <div class="glass-card mt-16" style="border-left: 3px solid var(--accent);">
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--accent);">
+          💡 How Reconciliation Works
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;color:var(--text-secondary);">
+          <div>✔️ <strong>Bank Debit</strong> = Money out of bank = <strong>Credit</strong> in your ledger</div>
+          <div>✔️ <strong>Bank Credit</strong> = Money into bank = <strong>Debit</strong> in your ledger</div>
+          <div>✔️ <strong>Cheque matching</strong> by cheque number first</div>
+          <div>✔️ <strong>Timing differences</strong> detected (outstanding cheques, bank charges)</div>
+          <div>✔️ <strong>Split transactions</strong> matched (100 + 0.110 bank charges)</div>
+          <div>✔️ <strong>Explanation &amp; clarification</strong> for every mismatch</div>
+        </div>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn-primary" id="btn-next-to-step2">
+          Next: Map Columns →
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STEP 2: Column Mapping                                             -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="step-panel" id="step-2">
+      <div class="section-header">
+        <div class="section-title">Map Your Columns</div>
+        <div class="section-desc">Tell us which column in your file corresponds to each field. We've auto-detected where possible.</div>
+      </div>
+
+      <!-- Mapping Tabs -->
+      <div class="mapping-tabs">
+        <button class="mapping-tab-btn active" id="mtab-bank-btn" onclick="switchMappingTab('bank')">🏦 Bank Statement</button>
+        <button class="mapping-tab-btn" id="mtab-ledger-btn" onclick="switchMappingTab('ledger')">📒 Ledger</button>
+      </div>
+
+      <!-- Bank Mapping Panel -->
+      <div id="mtab-bank" class="glass-card" style="margin-bottom:20px;">
+        <div class="mapping-section-title">
+          <span class="dot dot-bank"></span> Bank Statement Column Mapping
+        </div>
+        <div id="bank-mapping-form"><!-- Rendered by JS --></div>
+        <div class="divider"></div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;">📋 Data Preview (first 5 rows)</div>
+        <div id="bank-preview"><!-- Rendered by JS --></div>
+      </div>
+
+      <!-- Ledger Mapping Panel -->
+      <div id="mtab-ledger" class="glass-card hidden" style="margin-bottom:20px;">
+        <div class="mapping-section-title">
+          <span class="dot dot-ledger"></span> Ledger Column Mapping
+        </div>
+        <div id="ledger-mapping-form"><!-- Rendered by JS --></div>
+        <div class="divider"></div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;">📋 Data Preview (first 5 rows)</div>
+        <div id="ledger-preview"><!-- Rendered by JS --></div>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn-secondary" id="btn-back-to-step1">← Back</button>
+        <button class="btn-primary" id="btn-next-to-step3">Next: Configure →</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STEP 3: Configure & Run                                            -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="step-panel" id="step-3">
+      <div class="section-header">
+        <div class="section-title">Configure &amp; Run</div>
+        <div class="section-desc">Adjust matching settings then run the reconciliation engine.</div>
+      </div>
+
+      <div class="glass-card" style="margin-bottom:24px;">
+        <div style="font-size:15px;font-weight:700;margin-bottom:16px;">⚙️ Matching Settings</div>
+
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label class="setting-label" for="date-tolerance">📅 Date Tolerance (days)</label>
+            <div class="setting-desc">Max days apart to consider two transactions as timing-related (e.g., outstanding cheques, bank processing)</div>
+            <input type="number" class="setting-input" id="date-tolerance" value="7" min="0" max="90" />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">💱 Currency</label>
+            <div class="setting-desc">Amounts will be displayed in BHD with 3 decimal places</div>
+            <input type="text" class="setting-input" value="BHD (Bahraini Dinar — 3 decimals)" readonly style="opacity:0.6;cursor:default;" />
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--text-secondary);">🔍 Matching Priority</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--text-secondary);">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="background:rgba(16,185,129,0.15);color:var(--success);padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">1st</span>
+            <span>🏷️ <strong>Cheque Number Match</strong> — Matches by CHQ# + amount (highest confidence)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="background:rgba(16,185,129,0.15);color:var(--success);padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">2nd</span>
+            <span>📅 <strong>Exact Date + Amount</strong> — Same amount, within 1 day</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="background:rgba(245,158,11,0.15);color:var(--warning);padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">3rd</span>
+            <span>⏱️ <strong>Near-Date Match</strong> — Same amount, within tolerance days (timing differences)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="background:rgba(56,189,248,0.15);color:var(--bank-color);padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">4th</span>
+            <span>✂️ <strong>Split Transaction Match</strong> — One entry = sum of multiple entries (e.g., 100 + 0.110 bank charges)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="background:var(--danger-bg);color:var(--danger);padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">5th</span>
+            <span>❌ <strong>Unmatched</strong> — Remaining items flagged for manual review</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn-secondary" id="btn-back-to-step2">← Back</button>
+        <button class="btn-primary" id="btn-run-reconcile" style="min-width:200px;">
+          ▶ Run Reconciliation
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STEP 4: Report                                                     -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="step-panel" id="step-4">
+      <div class="section-header flex-between" style="flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="section-title">Reconciliation Report</div>
+          <div class="section-desc">Review matches, add explanations for mismatches, and export your report.</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn-secondary" id="btn-back-to-step3">← Back</button>
+          <button class="btn-secondary" id="btn-rerun" title="Start over with new files">🔄 New Reconciliation</button>
+        </div>
+      </div>
+
+      <div id="report-section">
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+          <div class="summary-card matched" id="card-matched">
+            <div class="card-icon">✅</div>
+            <div class="card-count">—</div>
+            <div class="card-label">Matched</div>
+          </div>
+          <div class="summary-card review" id="card-review">
+            <div class="card-icon">⚠️</div>
+            <div class="card-count">—</div>
+            <div class="card-label">Needs Review</div>
+          </div>
+          <div class="summary-card unmatched" id="card-unmatched-bank">
+            <div class="card-icon">🏦</div>
+            <div class="card-count">—</div>
+            <div class="card-label">Unmatched (Bank)</div>
+          </div>
+          <div class="summary-card unmatched" id="card-unmatched-ledger">
+            <div class="card-icon">📒</div>
+            <div class="card-count">—</div>
+            <div class="card-label">Unmatched (Ledger)</div>
+          </div>
+        </div>
+
+        <!-- Match % Bar -->
+        <div class="glass-card match-progress">
+          <div class="match-progress-header">
+            <span class="match-pct-label">Overall Match Rate</span>
+            <span class="match-pct-value" id="match-percent">—</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="match-bar-fill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Export Bar -->
+        <div class="export-bar">
+          <span class="export-bar-title">📤 Export:</span>
+          <button class="btn-export-pdf" id="btn-export-pdf">📄 Export PDF</button>
+          <button class="btn-export-csv" id="btn-export-csv">📊 Export CSV</button>
+        </div>
+
+        <!-- Report Tabs -->
+        <div class="report-tabs">
+          <button class="report-tab-btn active" data-tab="matched" id="tab-btn-matched">
+            ✅ Matched <span class="tab-badge" id="tab-matched-count">0</span>
+          </button>
+          <button class="report-tab-btn" data-tab="review" id="tab-btn-review">
+            ⚠️ Needs Review <span class="tab-badge" id="tab-review-count">0</span>
+          </button>
+          <button class="report-tab-btn" data-tab="bank" id="tab-btn-bank">
+            🏦 Unmatched Bank <span class="tab-badge" id="tab-bank-count">0</span>
+          </button>
+          <button class="report-tab-btn" data-tab="ledger" id="tab-btn-ledger">
+            📒 Unmatched Ledger <span class="tab-badge" id="tab-ledger-count">0</span>
+          </button>
+        </div>
+
+        <!-- Tab Contents -->
+        <div class="tab-content active" id="tab-content-matched">
+          <div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-msg">Run reconciliation to see results</div></div>
+        </div>
+        <div class="tab-content" id="tab-content-review">
+          <div class="empty-state"><div class="empty-icon">⏳</div></div>
+        </div>
+        <div class="tab-content" id="tab-content-bank">
+          <div class="empty-state"><div class="empty-icon">⏳</div></div>
+        </div>
+        <div class="tab-content" id="tab-content-ledger">
+          <div class="empty-state"><div class="empty-icon">⏳</div></div>
+        </div>
+
+        <!-- Reconciliation Statement -->
+        <div id="reconciliation-statement"></div>
+
+      </div><!-- /report-section -->
+    </div><!-- /step-4 -->
+
+  </main>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Scripts -->
+  <script src="js/parser.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/report.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/app.js"></script>
+
+  <script>
+    // Inline helpers needed before app.js
+    function switchMappingTab(side) {
+      ['bank', 'ledger'].forEach(s => {
+        document.getElementById(`mtab-${s}`).classList.toggle('hidden', s !== side);
+        document.getElementById(`mtab-${s}-btn`).classList.toggle('active', s === side);
+      });
+    }
+
+    // Fix card count IDs (app.js uses innerHTML .card-count, report.js uses getElementById)
+    // Patch to make summary cards work correctly
+    document.addEventListener('DOMContentLoaded', () => {
+      // Alias count elements
+      const aliases = {
+        'count-matched': 'card-matched',
+        'count-review': 'card-review',
+        'count-unmatched-bank': 'card-unmatched-bank',
+        'count-unmatched-ledger': 'card-unmatched-ledger',
+      };
+    });
+  </script>
+
+</body>
+</html>
