@@ -1,0 +1,10 @@
+Date,Particulars,Debit,Credit,Cheque No,Voucher No
+01/06/2026,Opening Balance,,,, 
+05/06/2026,Receipt from Customer ABC,10000.000,,,REC001
+10/06/2026,Payment to Supplier XYZ,,5000.000,,VCH001
+15/06/2026,Receipt - Customer DEF Cheque,2500.000,,CHQ004521,REC002
+20/06/2026,Rent Payment,,1500.000,,VCH002
+25/06/2026,Salary Transfer,,3000.000,,VCH003
+30/06/2026,Cheque Issued to Supplier ABC,,300.000,CHQ005890,VCH004
+30/06/2026,Wire Transfer to Vendor,,100.110,,VCH005
+30/06/2026,Interest Income,45.000,,,REC003
