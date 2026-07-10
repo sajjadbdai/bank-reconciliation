@@ -2,16 +2,95 @@
 
 const Parser = (() => {
 
-  // Parse an uploaded File object (CSV or XLSX) and return { headers, rows[] }
+  // Parse an uploaded File object (CSV, XLSX, or PDF) and return { headers, rows[] }
   async function parseFile(file) {
     const ext = file.name.split('.').pop().toLowerCase();
     if (ext === 'csv') {
       return parseCSV(await file.text());
     } else if (['xlsx', 'xls', 'ods'].includes(ext)) {
       return parseExcel(await file.arrayBuffer());
+    } else if (ext === 'pdf') {
+      return parsePDF(await file.arrayBuffer());
     } else {
-      throw new Error('Unsupported file type. Please upload CSV or Excel (.xlsx) files.');
+      throw new Error('Unsupported file type. Please upload CSV, Excel, or PDF files.');
     }
+  }
+
+  async function parsePDF(arrayBuffer) {
+    if (typeof pdfjsLib === 'undefined') {
+      throw new Error('PDF.js library is not loaded. Please check your internet connection.');
+    }
+    // Set worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    const allLines = [];
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const items = textContent.items;
+      
+      // Group text items by Y coordinate (vertical coordinate on page)
+      const linesMap = {};
+      items.forEach(item => {
+        if (!item.str.trim()) return;
+        // round to group items on same line (within 4 points tolerance)
+        const y = Math.round(item.transform[5]);
+        let foundY = Object.keys(linesMap).find(k => Math.abs(Number(k) - y) < 4);
+        if (!foundY) {
+          foundY = y;
+          linesMap[foundY] = [];
+        }
+        linesMap[foundY].push(item);
+      });
+
+      // Sort vertical lines descending (top of page to bottom)
+      const sortedYs = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
+      
+      sortedYs.forEach(y => {
+        // Sort items horizontally within the line (left to right)
+        const lineItems = linesMap[y].sort((a, b) => a.transform[4] - b.transform[4]);
+        // Join with multiple spaces to clearly delimit columns
+        const lineText = lineItems.map(item => item.str.trim()).join('   ');
+        allLines.push(lineText);
+      });
+    }
+
+    // Now convert lines into structured tabular rows
+    // We look for rows containing a date to identify transaction rows
+    const dateRegex = /\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b|\b\d{4}-\d{1,2}-\d{1,2}\b/;
+    const txnLines = allLines.filter(line => dateRegex.test(line));
+
+    if (txnLines.length === 0) {
+      throw new Error('No transaction rows containing a date could be found in the PDF. Please check the PDF format.');
+    }
+
+    // Split each transaction line by 3 or more spaces
+    const rowData = txnLines.map(line => {
+      return line.split(/\s{3,}/).map(col => col.trim()).filter(col => col !== '');
+    });
+
+    // Find the max number of columns
+    const maxCols = Math.max(...rowData.map(r => r.length));
+    
+    // Create headers: "Column 1", "Column 2", etc.
+    const headers = [];
+    for (let i = 1; i <= maxCols; i++) {
+      headers.push(`Column ${i}`);
+    }
+
+    // Build row objects mapped to these headers
+    const rows = rowData.map(cols => {
+      const row = {};
+      headers.forEach((h, idx) => {
+        row[h] = cols[idx] || '';
+      });
+      return row;
+    });
+
+    return { headers, rows };
   }
 
   function parseCSV(text) {
