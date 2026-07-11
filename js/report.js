@@ -2,6 +2,8 @@
 
 const Report = (() => {
 
+  const AMOUNT_TOL = 0.005; // BHD tolerance for floating point, mirrors Engine
+
   const EXPLANATION_TYPES = [
     { value: '', label: '— Select reason —' },
     { value: 'outstanding_chq', label: '📋 Outstanding Cheque (issued but not deposited yet)' },
@@ -17,11 +19,12 @@ const Report = (() => {
   ];
 
   let _reconciliationResult = null;
-  let _manualLinkSource = null; // { resultId, side }
+  let _linkSelection = new Set(); // Set of resultIds selected for multi-transaction linking
 
   function render(reconciliationResult) {
     _reconciliationResult = reconciliationResult;
-    _manualLinkSource = null;
+    _linkSelection.clear();
+    updateLinkSelectionBar();
     const { results, summary } = reconciliationResult;
 
     renderSummaryCards(summary);
@@ -80,8 +83,8 @@ const Report = (() => {
     container.querySelectorAll('.resolve-btn').forEach(btn => {
       btn.addEventListener('click', onResolve);
     });
-    container.querySelectorAll('.manual-link-btn').forEach(btn => {
-      btn.addEventListener('click', onManualLinkClick);
+    container.querySelectorAll('.link-select-checkbox').forEach(cb => {
+      cb.addEventListener('change', onLinkSelectChange);
     });
     container.querySelectorAll('.unmatch-btn').forEach(btn => {
       btn.addEventListener('click', onUnmatch);
@@ -108,8 +111,16 @@ const Report = (() => {
       ? `<span class="date-diff-badge">${r.dateDiff} day${r.dateDiff !== 1 ? 's' : ''} apart</span>`
       : '';
 
-    const manualLinkBtn = (r.status === 'unmatched_bank' || r.status === 'unmatched_ledger')
-      ? `<button class="manual-link-btn btn-icon" data-result-id="${r.id}" title="Manually link to another item">🔗 Link</button>`
+    // Items eligible for multi-transaction linking: any unmatched item, or an open
+    // manually-linked group that still has an outstanding variance (partial link)
+    const linkEligible = r.status === 'unmatched_bank' || r.status === 'unmatched_ledger' ||
+      (r.status === 'review' && r.manuallyLinked && Math.abs(r.variance) > AMOUNT_TOL);
+
+    const linkCheckbox = linkEligible
+      ? `<label class="link-select-label" title="Select this item to link with one or more items on the other side">
+          <input type="checkbox" class="link-select-checkbox" data-result-id="${r.id}" ${_linkSelection.has(r.id) ? 'checked' : ''} />
+          <span class="link-select-text">Select for Link</span>
+        </label>`
       : '';
 
     const unmatchBtn = (r.status === 'matched' || r.status === 'review')
@@ -125,7 +136,7 @@ const Report = (() => {
           ${r.resolved ? '<span class="resolved-badge">✅ Resolved</span>' : ''}
         </div>
         <div class="card-header-right">
-          ${manualLinkBtn}
+          ${linkCheckbox}
           ${unmatchBtn}
         </div>
       </div>
@@ -277,82 +288,149 @@ const Report = (() => {
     }
   }
 
-  function onManualLinkClick(e) {
+  // ─── Multi-Transaction Linking ─────────────────────────────────────────────
+  // Lets the user select any number of bank/ledger items (checkboxes) — e.g. one
+  // bank deposit of 400 plus two ledger receipts of 300 and 100 — and link them
+  // as a group. If the selected totals don't fully match, the group is linked as
+  // an open "review" item showing the outstanding variance, and any items left
+  // unselected (e.g. a third ledger entry) remain available to link later.
+
+  function resultAmount(r) {
+    const bankSum = r.bankItems.reduce((s, t) => s + t.normalized, 0);
+    const ledgerSum = r.ledgerItems.reduce((s, t) => s + t.normalized, 0);
+    return { bankSum, ledgerSum };
+  }
+
+  function onLinkSelectChange(e) {
     const resultId = e.target.dataset.resultId;
     const result = findResult(resultId);
     if (!result) return;
 
-    if (_manualLinkSource) {
-      // Second click — try to link
-      if (_manualLinkSource.resultId === resultId) {
-        // Cancel selection
-        _manualLinkSource = null;
-        document.querySelectorAll('.manual-link-btn.linking').forEach(b => b.classList.remove('linking'));
-        showToast('Link cancelled', 'info');
-        return;
-      }
-      // Link the two items
-      manuallyLink(_manualLinkSource.resultId, resultId);
-      _manualLinkSource = null;
-      document.querySelectorAll('.manual-link-btn.linking').forEach(b => b.classList.remove('linking'));
+    const { bankSum, ledgerSum } = resultAmount(result);
+    // For an open partial link (both sides present) the meaningful figure is what's
+    // still outstanding; for a plain unmatched item it's simply that item's amount.
+    const amt = (result.bankItems.length && result.ledgerItems.length)
+      ? Math.abs(result.variance)
+      : Math.abs(bankSum || ledgerSum);
+
+    if (e.target.checked) {
+      _linkSelection.add(resultId);
+      showToast(`Amount ${fmtAmt(amt)} BHD selected for link`, 'info');
     } else {
-      // First click — select source
-      _manualLinkSource = { resultId };
-      e.target.classList.add('linking');
-      showToast('Now click another item to link them together', 'info');
+      _linkSelection.delete(resultId);
+      showToast(`Amount ${fmtAmt(amt)} BHD removed from selection`, 'info');
     }
+    updateLinkSelectionBar();
   }
 
-  function manuallyLink(id1, id2) {
-    const r1 = findResult(id1);
-    const r2 = findResult(id2);
-    if (!r1 || !r2) return;
+  function clearLinkSelection() {
+    if (_linkSelection.size === 0) return;
+    _linkSelection.clear();
+    document.querySelectorAll('.link-select-checkbox:checked').forEach(cb => { cb.checked = false; });
+    updateLinkSelectionBar();
+    showToast('Selection cleared', 'info');
+  }
 
-    // Merge into one review result
+  function updateLinkSelectionBar() {
+    const bar = document.getElementById('link-selection-bar');
+    if (!bar) return;
+    if (_linkSelection.size === 0) {
+      bar.classList.add('hidden');
+      return;
+    }
+    const selectedResults = Array.from(_linkSelection).map(findResult).filter(Boolean);
+    const bankItems = selectedResults.flatMap(r => r.bankItems);
+    const ledgerItems = selectedResults.flatMap(r => r.ledgerItems);
+    const bankSum = bankItems.reduce((s, t) => s + t.normalized, 0);
+    const ledgerSum = ledgerItems.reduce((s, t) => s + t.normalized, 0);
+    const diff = Math.round((Math.abs(bankSum) - Math.abs(ledgerSum)) * 1000) / 1000;
+
+    document.getElementById('link-bar-count').textContent =
+      `${selectedResults.length} item${selectedResults.length !== 1 ? 's' : ''} selected`;
+    document.getElementById('link-bar-bank').textContent = `Bank: ${fmtAmt(bankSum)} BHD (${bankItems.length})`;
+    document.getElementById('link-bar-ledger').textContent = `Ledger: ${fmtAmt(ledgerSum)} BHD (${ledgerItems.length})`;
+    const diffEl = document.getElementById('link-bar-diff');
+    diffEl.textContent = Math.abs(diff) <= AMOUNT_TOL ? 'Diff: 0.000 BHD — amounts match ✅' : `Diff: ${fmtAmt(diff)} BHD`;
+    diffEl.classList.toggle('diff-ok', Math.abs(diff) <= AMOUNT_TOL);
+    diffEl.classList.toggle('diff-bad', Math.abs(diff) > AMOUNT_TOL);
+    bar.classList.remove('hidden');
+  }
+
+  function mergeSelectedLinks() {
+    if (_linkSelection.size < 2) {
+      showToast('Select at least 2 items to link together', 'warning');
+      return;
+    }
+    const selectedResults = Array.from(_linkSelection).map(findResult).filter(Boolean);
+    const bankItems = selectedResults.flatMap(r => r.bankItems);
+    const ledgerItems = selectedResults.flatMap(r => r.ledgerItems);
+
+    if (bankItems.length === 0 || ledgerItems.length === 0) {
+      showToast('Select at least one Bank item and one Ledger item to link', 'warning');
+      return;
+    }
+
+    const bankSum = bankItems.reduce((s, t) => s + t.normalized, 0);
+    const ledgerSum = ledgerItems.reduce((s, t) => s + t.normalized, 0);
+    const variance = Math.round((bankSum - ledgerSum) * 1000) / 1000;
+    const isFullyMatched = Math.abs(variance) <= AMOUNT_TOL;
+    const totalItems = bankItems.length + ledgerItems.length;
+
+    const carriedExplanation = selectedResults.find(r => r.explanation)?.explanation || '';
+    const carriedExplanationType = selectedResults.find(r => r.explanationType)?.explanationType || '';
+
     const merged = {
-      id: r1.id,
+      id: selectedResults[0].id,
       type: 'manual',
-      matchLabel: '🔗 Manually Linked',
-      bankItems: [...r1.bankItems, ...r2.bankItems],
-      ledgerItems: [...r1.ledgerItems, ...r2.ledgerItems],
-      variance: 0,
-      dateDiff: null,
-      status: 'review',
-      explanation: '',
-      explanationType: '',
+      matchLabel: `🔗 Manually Linked${totalItems > 2 ? ` (${totalItems} items)` : ''}`,
+      bankItems,
+      ledgerItems,
+      variance,
+      dateDiff: (bankItems.length && ledgerItems.length)
+        ? Math.max(...bankItems.flatMap(b => ledgerItems.map(l => Math.abs((b.date - l.date) / 86400000))))
+        : null,
+      status: isFullyMatched ? 'matched' : 'review',
+      explanation: isFullyMatched ? '' : carriedExplanation,
+      explanationType: isFullyMatched ? '' : carriedExplanationType,
       resolved: false,
       manuallyLinked: true,
     };
 
-    // Compute variance
-    const bankSum = merged.bankItems.reduce((s, t) => s + t.normalized, 0);
-    const ledgerSum = merged.ledgerItems.reduce((s, t) => s + t.normalized, 0);
-    merged.variance = Math.round((bankSum - ledgerSum) * 1000) / 1000;
-    merged.dateDiff = merged.bankItems.length && merged.ledgerItems.length
-      ? Math.max(...merged.bankItems.flatMap(b => merged.ledgerItems.map(l => Math.abs((b.date - l.date) / 86400000))))
-      : null;
+    const mergedIds = new Set(selectedResults.map(r => r.id));
+    const firstIdx = _reconciliationResult.results.findIndex(r => mergedIds.has(r.id));
+    _reconciliationResult.results = _reconciliationResult.results.filter(r => !mergedIds.has(r.id));
+    _reconciliationResult.results.splice(firstIdx, 0, merged);
 
-    // Replace r1 and remove r2
-    const idx1 = _reconciliationResult.results.findIndex(r => r.id === id1);
-    const idx2 = _reconciliationResult.results.findIndex(r => r.id === id2);
-    if (idx1 !== -1) _reconciliationResult.results[idx1] = merged;
-    if (idx2 !== -1) _reconciliationResult.results.splice(idx2, 1);
-
-    // Recompute summary
+    _linkSelection.clear();
     _reconciliationResult.summary = recomputeSummary(_reconciliationResult.results);
 
-    // Re-render
     renderSummaryCards(_reconciliationResult.summary);
     renderTabCounts(_reconciliationResult.summary);
     renderAllTabs(_reconciliationResult.results);
     renderReconciliationStatement(_reconciliationResult.summary, _reconciliationResult.results);
-    showToast('Items linked successfully!', 'success');
+    updateLinkSelectionBar();
+
+    if (isFullyMatched) {
+      showToast(`Linked successfully — amounts match (${fmtAmt(Math.abs(bankSum))} BHD)!`, 'success');
+    } else {
+      showToast(`Linked ${totalItems} items — ${fmtAmt(Math.abs(variance))} BHD still outstanding`, 'warning');
+    }
   }
+
+  function initLinkBar() {
+    const clearBtn = document.getElementById('link-bar-clear');
+    const confirmBtn = document.getElementById('link-bar-confirm');
+    if (clearBtn) clearBtn.addEventListener('click', clearLinkSelection);
+    if (confirmBtn) confirmBtn.addEventListener('click', mergeSelectedLinks);
+  }
+  document.addEventListener('DOMContentLoaded', initLinkBar);
 
   function onUnmatch(e) {
     const resultId = e.target.dataset.resultId;
     const result = findResult(resultId);
     if (!result) return;
+
+    _linkSelection.delete(resultId);
 
     // Split back into individual unmatched items
     const idx = _reconciliationResult.results.findIndex(r => r.id === resultId);
@@ -399,6 +477,7 @@ const Report = (() => {
     renderTabCounts(_reconciliationResult.summary);
     renderAllTabs(_reconciliationResult.results);
     renderReconciliationStatement(_reconciliationResult.summary, _reconciliationResult.results);
+    updateLinkSelectionBar();
     showToast('Items unmatched', 'info');
   }
 

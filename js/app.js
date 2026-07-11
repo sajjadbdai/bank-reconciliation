@@ -9,6 +9,7 @@ const AppState = {
   ledgerTransactions: [],
   reconciliationResult: null,
   dateTolerance: 7,
+  splitTolerance: 15,
   isDirty: false,
   markDirty() { this.isDirty = true; },
 };
@@ -186,7 +187,12 @@ function collectMappings() {
 function initStep3() {
   document.getElementById('btn-back-to-step2').addEventListener('click', () => goToStep(2));
   document.getElementById('date-tolerance').addEventListener('change', e => {
-    AppState.dateTolerance = parseInt(e.target.value) || 7;
+    const n = parseInt(e.target.value);
+    AppState.dateTolerance = Number.isNaN(n) ? 7 : n;
+  });
+  document.getElementById('split-tolerance').addEventListener('change', e => {
+    const n = parseInt(e.target.value);
+    AppState.splitTolerance = Number.isNaN(n) ? 15 : n;
   });
   document.getElementById('btn-run-reconcile').addEventListener('click', runReconciliation);
 }
@@ -218,7 +224,7 @@ function runReconciliation() {
         AppState.reconciliationResult = Engine.reconcile(
           AppState.bankTransactions,
           AppState.ledgerTransactions,
-          { dateTolerance: AppState.dateTolerance, splitTolerance: AppState.dateTolerance + 3 }
+          { dateTolerance: AppState.dateTolerance, splitTolerance: AppState.splitTolerance }
         );
 
         // Render report

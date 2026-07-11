@@ -683,6 +683,64 @@ body::before {
 }
 .btn-export-csv:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(5,150,105,0.4); }
 
+/* ─── Multi-Select Link Checkbox ────────────────────────────────────────── */
+.link-select-label {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg-input); color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 6px 12px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: var(--transition);
+}
+.link-select-label:hover { border-color: var(--accent); color: var(--text-primary); }
+.link-select-checkbox {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid var(--text-muted);
+  cursor: pointer; flex-shrink: 0; position: relative;
+  transition: var(--transition);
+}
+.link-select-checkbox:checked {
+  border-color: var(--accent); background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.link-select-checkbox:checked::after {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: white; transform: translate(-50%, -50%);
+}
+.link-select-label:has(.link-select-checkbox:checked) {
+  border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.1);
+}
+
+/* ─── Link Selection Bar ────────────────────────────────────────────────── */
+.link-selection-bar {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  background: var(--bg-card); border: 1px solid var(--border-accent);
+  border-radius: 14px; padding: 14px 22px;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(20px);
+  z-index: 9000;
+  max-width: calc(100vw - 32px);
+}
+.link-bar-info {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+}
+.link-bar-icon { font-size: 16px; }
+.link-bar-sep { color: var(--text-muted); }
+#link-bar-count { color: var(--text-primary); }
+#link-bar-diff.diff-ok { color: var(--success); }
+#link-bar-diff.diff-bad { color: var(--danger); }
+.link-bar-actions { display: flex; gap: 10px; }
+.link-bar-actions .btn-primary, .link-bar-actions .btn-secondary { padding: 8px 18px; font-size: 13px; }
+
+@media (max-width: 700px) {
+  .link-selection-bar { flex-direction: column; align-items: stretch; left: 16px; right: 16px; transform: none; }
+  .link-bar-actions { justify-content: flex-end; }
+}
+
 /* ─── Toast ─────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed; bottom: 24px; right: 24px;

@@ -188,6 +188,11 @@
             <input type="number" class="setting-input" id="date-tolerance" value="7" min="0" max="90" />
           </div>
           <div class="setting-item">
+            <label class="setting-label" for="split-tolerance">🧮 Cash/Split Grouping Window (days)</label>
+            <div class="setting-desc">Max days between a bank deposit and the individual ledger entries it groups (e.g., several days of cash receipts deposited together)</div>
+            <input type="number" class="setting-input" id="split-tolerance" value="15" min="0" max="90" />
+          </div>
+          <div class="setting-item">
             <label class="setting-label">💱 Currency</label>
             <div class="setting-desc">Amounts will be displayed in BHD with 3 decimal places</div>
             <input type="text" class="setting-input" value="BHD (Bahraini Dinar — 3 decimals)" readonly style="opacity:0.6;cursor:default;" />
@@ -211,7 +216,7 @@
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span style="background:rgba(56,189,248,0.15);color:var(--bank-color);padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">4th</span>
-            <span>✂️ <strong>Split Transaction Match</strong> — One entry = sum of multiple entries (e.g., 100 + 0.110 bank charges)</span>
+            <span>✂️ <strong>Split Transaction Match</strong> — One entry = sum of multiple entries (e.g., grouped cash deposits, or 100 + 0.110 bank charges)</span>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span style="background:var(--danger-bg);color:var(--danger);padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">5th</span>
@@ -324,6 +329,24 @@
     </div><!-- /step-4 -->
 
   </main>
+
+  <!-- Multi-Select Link Bar -->
+  <div class="link-selection-bar hidden" id="link-selection-bar">
+    <div class="link-bar-info">
+      <span class="link-bar-icon">🔗</span>
+      <span id="link-bar-count">0 items selected</span>
+      <span class="link-bar-sep">•</span>
+      <span id="link-bar-bank">Bank: 0.000 BHD</span>
+      <span class="link-bar-sep">•</span>
+      <span id="link-bar-ledger">Ledger: 0.000 BHD</span>
+      <span class="link-bar-sep">•</span>
+      <span id="link-bar-diff">Diff: 0.000 BHD</span>
+    </div>
+    <div class="link-bar-actions">
+      <button class="btn-secondary" id="link-bar-clear">✕ Clear</button>
+      <button class="btn-primary" id="link-bar-confirm">🔗 Link Selected</button>
+    </div>
+  </div>
 
   <!-- Toast Notification -->
   <div class="toast" id="toast"></div>

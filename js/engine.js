@@ -235,15 +235,16 @@ const Engine = (() => {
   }
 
   // Find a subset of items whose normalized sum ≈ target
-  // Uses greedy approach for small sets, brute force for ≤ 15 items
+  // Uses greedy approach for large sets, brute force for smaller pools
+  // (larger pool/group size supports e.g. several days of cash receipts grouped into one bank deposit)
   function findSubsetSum(items, target, tol) {
     if (items.length === 0) return null;
-    if (items.length > 20) {
+    if (items.length > 12) {
       // Greedy: try to build sum greedily
       return greedySubset(items, target, tol);
     }
     // Brute force for small sets
-    for (let size = 2; size <= Math.min(items.length, 5); size++) {
+    for (let size = 2; size <= Math.min(items.length, 6); size++) {
       const result = combinations(items, size).find(combo => {
         const sum = combo.reduce((s, t) => s + t.normalized, 0);
         return Math.abs(sum - target) <= tol;

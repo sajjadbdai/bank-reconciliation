@@ -156,27 +156,34 @@ const Parser = (() => {
   }
 
   // Parse date from various formats → Date object or null
+  // This app always interprets ambiguous numeric dates as DD/MM/YYYY (never MM/DD/YYYY),
+  // matching the dd/mm/yyyy format used throughout the app's inputs, display, and exports.
   function parseDate(str) {
     if (!str) return null;
     str = String(str).trim();
-    // Try ISO
-    let d = new Date(str);
-    if (!isNaN(d.getTime())) {
-      // Make sure time is noon to avoid timezone issues
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    if (!str) return null;
+
+    // ISO format YYYY-MM-DD (unambiguous — always Year-Month-Day)
+    const iso = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (iso) {
+      const [, yyyy, mm, dd] = iso;
+      const d = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+      if (!isNaN(d.getTime())) return d;
     }
-    // Try DD/MM/YYYY or DD-MM-YYYY
-    const m1 = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
-    if (m1) {
-      const [, dd, mm, yy] = m1;
+
+    // DD/MM/YYYY, DD-MM-YYYY or DD.MM.YYYY (this app's expected format)
+    const dmy = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+    if (dmy) {
+      const [, dd, mm, yy] = dmy;
       const year = yy.length === 2 ? 2000 + parseInt(yy) : parseInt(yy);
-      return new Date(year, parseInt(mm) - 1, parseInt(dd));
+      const d = new Date(year, parseInt(mm) - 1, parseInt(dd));
+      if (!isNaN(d.getTime())) return d;
     }
-    // Try MM/DD/YYYY
-    const m2 = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
-    if (m2) {
-      const [, mm, dd, yyyy] = m2;
-      return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+
+    // Fallback: let the browser parse other formats (e.g. "5 June 2026")
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     }
     return null;
   }
