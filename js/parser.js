@@ -133,18 +133,30 @@ const Parser = (() => {
   function parseExcel(arrayBuffer) {
     const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+    // raw:true preserves genuine Date objects for date cells (cellDates:true) instead of
+    // reformatting them to text via the cell's stored Excel number-format code — that code
+    // can be locale-ambiguous (e.g. m/d/yyyy) and would get silently misread as d/m/yyyy
+    // by our parser downstream. We format dates ourselves (unambiguous dd/mm/yyyy) below.
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
     if (data.length === 0) throw new Error('Excel file is empty');
-    const headers = data[0].map(h => String(h).trim());
+    const headers = data[0].map(h => cellToString(h).trim());
     const rows = [];
     for (let i = 1; i < data.length; i++) {
       const rowArr = data[i];
-      if (rowArr.every(v => String(v).trim() === '')) continue;
+      if (rowArr.every(v => cellToString(v).trim() === '')) continue;
       const row = {};
-      headers.forEach((h, idx) => { row[h] = String(rowArr[idx] || '').trim(); });
+      headers.forEach((h, idx) => { row[h] = cellToString(rowArr[idx]).trim(); });
       rows.push(row);
     }
     return { headers, rows };
+  }
+
+  // Convert a raw SheetJS cell value to text. Date cells are formatted as DD/MM/YYYY
+  // (this app's convention) instead of trusting the cell's original, possibly-ambiguous format.
+  function cellToString(v) {
+    if (v instanceof Date) return formatDate(v);
+    if (v === undefined || v === null) return '';
+    return String(v);
   }
 
   // Parse amount string: "1,234.500" → 1234.5
