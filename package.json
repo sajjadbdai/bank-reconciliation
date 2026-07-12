@@ -1,0 +1,43 @@
+{
+  "name": "bank-reconciliation-desktop",
+  "version": "1.0.0",
+  "description": "Bank Reconciliation Pro — standalone Windows desktop wrapper around the static web app",
+  "main": "desktop/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win portable --x64"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.sajjadbdai.bankreconciliation",
+    "productName": "Bank Reconciliation Pro",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop/main.js",
+      "index.html",
+      "css/**/*",
+      "js/**/*",
+      "!sample_*.csv",
+      "!README.md"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "BankReconciliationPro-Portable.exe"
+    }
+  }
+}

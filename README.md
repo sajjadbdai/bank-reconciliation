@@ -136,6 +136,28 @@ git push -u origin main
 
 ---
 
+## 🖥️ Desktop App (Windows, no installation)
+
+The same app can be packaged as a standalone Windows `.exe` — no installer, no admin rights, no separate browser or runtime needed on the target machine. It's an [Electron](https://www.electronjs.org/) shell that just loads the existing `index.html`/`css`/`js` unchanged, so it always matches the web version.
+
+**Build it yourself:**
+```bash
+npm install
+npm run build:win
+```
+The portable executable is written to `dist/BankReconciliationPro-Portable.exe` (~70 MB). Copy that single file anywhere on a Windows machine and double-click it to run — nothing else to install.
+
+**Note:** it still needs internet access, because SheetJS, jsPDF, and PDF.js are loaded from CDN links in `index.html` (same as the web version) rather than bundled offline.
+
+**If the build fails while downloading `winCodeSign`** with a `Cannot create symbolic link` error, your Windows account doesn't have symlink-creation privilege (needed to extract an unrelated macOS code-signing package that electron-builder fetches even for unsigned Windows builds). Either:
+- Enable **Developer Mode** (Settings → Privacy & Security → For developers) and retry, or
+- Set `CSC_IDENTITY_AUTO_DISCOVERY=false` before building, or
+- As a last resort, wrap `node_modules/7zip-bin/win/x64/7za.exe` so it tolerates that specific symlink error (rename the real binary to `7za_real.exe` and replace `7za.exe` with a small shim that calls it and ignores `Cannot create symbolic link` failures — those files are macOS-only and never used on Windows).
+
+Desktop-specific source lives in `desktop/main.js` and the root `package.json`; `node_modules/` and `dist/` are gitignored and never committed.
+
+---
+
 ## 🛠️ Technology Stack
 
 - **HTML5 + Vanilla CSS + Vanilla JavaScript** — No frameworks, no build step
