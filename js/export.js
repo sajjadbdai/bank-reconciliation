@@ -13,6 +13,39 @@ const Exporter = (() => {
     return `${dd}/${mm}/${d.getFullYear()}`;
   }
 
+  const COMPANY_NAME = 'Gulf Fiberglass & Plastic Factory W.L.L.';
+  const DEVELOPER_CREDIT = 'Developed by Mohammed Sajjad with Claude AI';
+
+  // Re-render the already-loaded header logo onto a canvas to get a data URL
+  // (avoids a re-fetch and works fully offline once the page has loaded it).
+  function getLogoDataUrl() {
+    const img = document.getElementById('header-logo-img');
+    if (!img || !img.complete || !img.naturalWidth) return null;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      return canvas.toDataURL('image/png');
+    } catch (e) {
+      return null; // e.g. blocked by canvas tainting if served cross-origin
+    }
+  }
+
+  function addPdfFooter(doc) {
+    const pageCount = doc.internal.getNumberOfPages();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(120, 120, 120);
+      doc.text(DEVELOPER_CREDIT, 14, pageHeight - 6);
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - 14, pageHeight - 6, { align: 'right' });
+    }
+  }
+
   // ─── PDF Export ────────────────────────────────────────────────────────────
   function exportPDF(reconciliationResult) {
     const { jsPDF } = window.jspdf;
@@ -28,10 +61,22 @@ const Exporter = (() => {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('Bank Reconciliation Report', 14, 12);
+    doc.text('Bank Reconciliation Report', 14, 11);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Generated: ${dateStr}`, 14, 19);
+    doc.text(COMPANY_NAME, 14, 17);
+    doc.text(`Generated: ${dateStr}`, 14, 22);
+
+    const logoDataUrl = getLogoDataUrl();
+    if (logoDataUrl) {
+      const img = document.getElementById('header-logo-img');
+      const maxW = 55, maxH = 16;
+      const ratio = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
+      const w = img.naturalWidth * ratio, h = img.naturalHeight * ratio;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(297 - w - 18, (25 - h) / 2, w + 4, h + 4, 1.5, 1.5, 'F');
+      doc.addImage(logoDataUrl, 'PNG', 297 - w - 16, (25 - h) / 2 + 2, w, h);
+    }
 
     let y = 32;
 
@@ -154,6 +199,7 @@ const Exporter = (() => {
       margin: { left: 14 },
     });
 
+    addPdfFooter(doc);
     doc.save(`bank_reconciliation_${dateStr.replace(/\//g, '-')}.pdf`);
     Report.showToast('PDF exported successfully!', 'success');
   }
@@ -161,7 +207,12 @@ const Exporter = (() => {
   // ─── CSV Export ────────────────────────────────────────────────────────────
   function exportCSV(reconciliationResult) {
     const { results } = reconciliationResult;
+    const now = new Date();
+    const generatedStr = fmtDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
     const rows = [
+      [COMPANY_NAME],
+      [`Bank Reconciliation Report — Generated ${generatedStr}`],
+      [],
       ['Source', 'Date', 'Description', 'CHQ Number', 'Debit (BHD)', 'Credit (BHD)', 'Match Status', 'Match Type', 'Date Difference (Days)', 'Variance (BHD)', 'Explanation Type', 'Notes', 'Resolved']
     ];
 
@@ -187,6 +238,8 @@ const Exporter = (() => {
       r.ledgerItems.forEach(t => addRow(t, 'Ledger'));
     });
 
+    rows.push([], [DEVELOPER_CREDIT]);
+
     const csv = rows.map(r =>
       r.map(cell => {
         const s = String(cell || '');
@@ -200,7 +253,6 @@ const Exporter = (() => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const now = new Date();
     const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     a.download = `bank_reconciliation_${dateStr}.csv`;
     a.click();

@@ -279,5 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initUpload();
   initStep3();
   initStep4();
+  const footerYear = document.getElementById('footer-year');
+  if (footerYear) footerYear.textContent = new Date().getFullYear();
   console.log('Bank Reconciliation App initialized');
 });

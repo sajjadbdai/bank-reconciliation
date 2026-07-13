@@ -99,6 +99,21 @@ body::before {
   box-shadow: 0 0 20px var(--accent-glow);
 }
 
+.header-logo {
+  height: 44px;
+  width: auto;
+  background: #fff;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 16px rgba(0,0,0,0.25);
+}
+
+.header-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+}
+
 .header-title { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
 .header-title span { color: var(--accent); }
 .header-subtitle { font-size: 13px; color: var(--text-secondary); }
@@ -740,6 +755,19 @@ body::before {
   .link-selection-bar { flex-direction: column; align-items: stretch; left: 16px; right: 16px; transform: none; }
   .link-bar-actions { justify-content: flex-end; }
 }
+
+/* ─── Footer ────────────────────────────────────────────────────────────── */
+.app-footer {
+  position: relative; z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 8px;
+  font-size: 12px; color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+.app-footer .footer-credit { color: var(--text-secondary); }
 
 /* ─── Toast ─────────────────────────────────────────────────────────────── */
 .toast {

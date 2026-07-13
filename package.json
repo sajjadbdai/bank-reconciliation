@@ -21,12 +21,15 @@
     "files": [
       "desktop/main.js",
       "index.html",
+      "gfpflogo.png",
+      "assets/**/*",
       "css/**/*",
       "js/**/*",
       "!sample_*.csv",
       "!README.md"
     ],
     "win": {
+      "icon": "assets/icon-mark-square.png",
       "target": [
         {
           "target": "portable",
